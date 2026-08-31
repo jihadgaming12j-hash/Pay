@@ -97,7 +97,9 @@ def mraipay_create_payment(cus_name, cus_email, amount, chat_id):
         log.exception("mraipay_create_payment error: %s", e)
         return None
 
-    if data.get("status") is True and data.get("payment_url"):
+    # Mr Ai Pay may return status as boolean True or integer 1 for success —
+    # accept either truthy form as long as payment_url is present.
+    if data.get("status") and data.get("payment_url"):
         return data["payment_url"]
 
     log.error("mraipay create failed: %s", data)
