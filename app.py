@@ -219,6 +219,53 @@ def payment_cancel():
 
 
 # ---------------------------------------------------------------------------
+# Universal Verify Endpoint — call this from ANY bot/site/project.
+# No API/SECRET/BRAND key needed on the caller's side — this service already
+# holds those keys (set once as environment variables here) and does the
+# verification against Mr Ai Pay on the caller's behalf.
+#
+# Usage (GET or POST both work):
+#   https://paybd-three.vercel.app/verify?transaction_id=XXXXXX
+#
+# Response (JSON):
+#   { "ok": true,  "status": "COMPLETED", "amount": "...", "cus_name": "...", ... }
+#   { "ok": false, "status": "PENDING"/"ERROR", "message": "..." }
+# ---------------------------------------------------------------------------
+@app.route("/verify", methods=["GET", "POST"])
+def universal_verify():
+    if request.method == "GET":
+        transaction_id = request.args.get("transaction_id")
+    else:
+        body = request.get_json(force=True, silent=True) or {}
+        transaction_id = body.get("transaction_id") or request.args.get("transaction_id")
+
+    if not transaction_id:
+        return jsonify({"ok": False, "message": "transaction_id is required"}), 400
+
+    result = mraipay_verify_payment(transaction_id)
+    status = result.get("status")
+
+    if status == "COMPLETED":
+        return jsonify({
+            "ok": True,
+            "status": status,
+            "transaction_id": transaction_id,
+            "amount": result.get("amount"),
+            "cus_name": result.get("cus_name"),
+            "cus_email": result.get("cus_email"),
+            "payment_method": result.get("payment_method"),
+            "metadata": result.get("metadata"),
+        })
+
+    return jsonify({
+        "ok": False,
+        "status": status or "ERROR",
+        "message": result.get("message", "Payment not completed"),
+        "transaction_id": transaction_id,
+    })
+
+
+# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 @app.route("/", methods=["GET"])
